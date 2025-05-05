@@ -17,7 +17,7 @@ struct Vertex {
     int lehmar;
     uint8_t rightmost_correct;
 
-    Vertex() : rightmost_correct(0){
+    Vertex() : lehmar(0), rightmost_correct(0) {
         memset(data, 0, sizeof(data));
     }
 
@@ -76,69 +76,6 @@ struct Vertex {
         return os;
     }
 };
-
-struct ParentTable
-{
-    uint8_t data[n * (n - 1)]; // Stores up to (n - 1) parents of size n each
-
-    ParentTable()
-    {
-        memset(data, 0, sizeof(data));
-    }
-
-    // Store a full permutation at index i
-    void store(int i, const uint8_t *perm)
-    {
-        memcpy(&data[i * n], perm, n);
-    }
-
-    // Get a pointer to the i-th stored permutation
-    const uint8_t *get(int i) const
-    {
-        return &data[i * n];
-    }
-
-    // Optional non-const accessor
-    uint8_t *get(int i)
-    {
-        return &data[i * n];
-    }
-
-    friend ostream &operator<<(ostream &os, const ParentTable &pt)
-    {
-        for (int j = 0; j < n - 1; ++j)
-        {
-            for (int k = 0; k < n; ++k)
-                cout << (int)pt.get(j)[k] << " ";
-            cout << " -> t = " << j + 1 << endl;
-        }
-        return os;
-    }
-};
-
-
-int global_permutation_rank(const uint8_t* perm, int n) {
-    int rank = 0;
-    bool* used = new bool[n]();  // Initialize to false, size n for the entire permutation
-
-    for (int i = 0; i < n; ++i) {
-        int count = 0;
-
-        // Count how many smaller elements are still available (not used)
-        for (int j = 0; j < perm[i] - 1; ++j)
-            if (!used[j]) count++;
-
-        // Update the rank based on the available choices
-        rank = rank * (n - i) + count;
-
-        // Mark this element as used
-        used[perm[i] - 1] = true;
-    }
-
-    delete[] used;
-    return rank;
-}
-
 
 
 struct ParentTable
@@ -223,10 +160,9 @@ void generateBubbleSortNetworkOptimized()
     int num_pairs = pairs_per_rank + (rank < remainder ? 1 : 0);
 
     int rank_size = factorial(n - 2) * num_pairs;
+    int vertex_per_pair = factorial(n - 2);
 
-    Vertex I_n;
-    for (int i = 0; i < n; ++i)
-        I_n[i] = i + 1;
+    Vertex* local_vertices = new Vertex[rank_size]; // Allocate enough (overestimate, safe)
 
     Vertex I_n;
     for (int i = 0; i < n; ++i)
@@ -268,6 +204,8 @@ void generateBubbleSortNetworkOptimized()
         initial.compute_inverse();  // Precompute the inverse
         initial.setLehmarCode(permutation_rank(&initial[2], value_to_index, n - 2));
         q.push(initial);
+        visited[initial.getLehmarCode()] = true;
+
         local_vertices[count++] = initial;
 
         while (!q.empty()) // bfs
@@ -279,14 +217,16 @@ void generateBubbleSortNetworkOptimized()
             {
                 Vertex new_perm = current;
                 std::swap(new_perm[i], new_perm[i + 1]);
+                int r = permutation_rank(&new_perm[2], value_to_index, n - 2);
 
-                if (visited.find(new_perm) == visited.end())
-                {
-                    visited.insert(new_perm);
+                if (!visited[r]) {
+                    visited[r] = true;
                     q.push(new_perm);
                     new_perm.compute_inverse();
+                    new_perm.setLehmarCode(r);
+                    cout << new_perm << "  " <<  (int)new_perm.getLehmarCode() << endl;
                     local_vertices[count++] = new_perm;
-                    std::cout << new_perm << "  " << rank << std::endl;
+                    count++;
                 }
             }
         }
@@ -320,9 +260,8 @@ void generateBubbleSortNetworkOptimized()
     double elapsed_time = end_time - start_time;
     if (rank == 0)
         std::cout << "Elapsed time: " << elapsed_time << " seconds" << std::endl;
+
 }
-
-
 
 int main(int argc, char *argv[])
 {
