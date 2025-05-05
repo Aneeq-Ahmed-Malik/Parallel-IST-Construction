@@ -15,7 +15,8 @@ struct Vertex
     uint8_t data[2 * n];
     uint8_t rightmost_correct;
 
-    Vertex() : rightmost_correct(0){
+    Vertex() : rightmost_correct(0)
+    {
         memset(data, 0, sizeof(data));
     }
 
@@ -78,6 +79,45 @@ struct Vertex
     }
 };
 
+struct ParentTable
+{
+    uint8_t data[n * (n - 1)]; // Stores up to (n - 1) parents of size n each
+
+    ParentTable()
+    {
+        memset(data, 0, sizeof(data));
+    }
+
+    // Store a full permutation at index i
+    void store(int i, const uint8_t *perm)
+    {
+        memcpy(&data[i * n], perm, n);
+    }
+
+    // Get a pointer to the i-th stored permutation
+    const uint8_t *get(int i) const
+    {
+        return &data[i * n];
+    }
+
+    // Optional non-const accessor
+    uint8_t *get(int i)
+    {
+        return &data[i * n];
+    }
+
+    friend ostream &operator<<(ostream &os, const ParentTable &pt)
+    {
+        for (int j = 0; j < n - 1; ++j)
+        {
+            for (int k = 0; k < n; ++k)
+                cout << (int)pt.get(j)[k] << " ";
+            cout << " -> t = " << j + 1 << endl;
+        }
+        return os;
+    }
+};
+
 size_t factorial(int k);
 
 Vertex Swap(Vertex &v, uint8_t x);
@@ -101,8 +141,13 @@ void generateBubbleSortNetworkOptimized()
     int num_pairs = pairs_per_rank + (rank < remainder ? 1 : 0);
 
     int rank_size = factorial(n - 2) * num_pairs;
+    int vertex_per_pair = factorial(n - 2);
 
-    Vertex* local_vertices = new Vertex[rank_size]; // Allocate enough (overestimate, safe)
+    Vertex *local_vertices = new Vertex[rank_size]; // Allocate enough (overestimate, safe)
+
+    Vertex I_n;
+    for (int i = 0; i < n; ++i)
+        I_n[i] = i + 1;
 
     int count = 0;
     for (int k = start_idx; k < start_idx + num_pairs; ++k)
@@ -124,7 +169,7 @@ void generateBubbleSortNetworkOptimized()
         q.push(initial);
         local_vertices[count++] = initial;
 
-        while (!q.empty())      // bfs
+        while (!q.empty()) // bfs
         {
             Vertex current = q.front();
             q.pop();
@@ -153,9 +198,16 @@ void generateBubbleSortNetworkOptimized()
     double elapsed_time = end_time - start_time;
     if (rank == 0)
         std::cout << "Elapsed time: " << elapsed_time << " seconds" << std::endl;
+
+    ParentTable *parent_map = new ParentTable[rank_size];
+
+    for (int i = 0; i < rank_size; ++i){
+        for (int t = 1; t < n; ++t)
+            parent_map[i].store(t - 1, Parent1(local_vertices[i], I_n, t).data);
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
 }
-
-
 
 int main(int argc, char *argv[])
 {
@@ -173,7 +225,13 @@ size_t factorial(int k)
     return res;
 }
 
-
+Vertex Swap(Vertex &v, uint8_t x)
+{
+    Vertex p = v;
+    uint8_t i = v(x); // inverse
+    swap(p[i], p[i + 1]);
+    return p;
+}
 
 Vertex FindPosition(Vertex &v, Vertex &I_n, uint8_t t)
 {
@@ -186,13 +244,7 @@ Vertex FindPosition(Vertex &v, Vertex &I_n, uint8_t t)
         p = Swap(v, t);
     return p;
 }
-Vertex Swap(Vertex &v, uint8_t x)
-{
-    Vertex p = v;
-    uint8_t i = v(x); // inverse
-    swap(p[i], p[i + 1]);
-    return p;
-}
+
 Vertex Parent1(Vertex &v, Vertex &I_n, uint8_t t)
 {
     Vertex p;
