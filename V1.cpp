@@ -118,6 +118,30 @@ struct ParentTable
     }
 };
 
+
+int global_permutation_rank(const uint8_t* perm, int n) {
+    int rank = 0;
+    bool* used = new bool[n]();  // Initialize to false, size n for the entire permutation
+
+    for (int i = 0; i < n; ++i) {
+        int count = 0;
+
+        // Count how many smaller elements are still available (not used)
+        for (int j = 0; j < perm[i] - 1; ++j)
+            if (!used[j]) count++;
+
+        // Update the rank based on the available choices
+        rank = rank * (n - i) + count;
+
+        // Mark this element as used
+        used[perm[i] - 1] = true;
+    }
+
+    delete[] used;
+    return rank;
+}
+
+
 size_t factorial(int k);
 
 Vertex Swap(Vertex &v, uint8_t x);
@@ -143,7 +167,8 @@ void generateBubbleSortNetworkOptimized()
     int rank_size = factorial(n - 2) * num_pairs;
     int vertex_per_pair = factorial(n - 2);
 
-    Vertex *local_vertices = new Vertex[rank_size]; // Allocate enough (overestimate, safe)
+    Vertex *all_vertices = new Vertex[factorial(n)]; 
+    bool *visited = new bool[factorial(n)];
 
     Vertex I_n;
     for (int i = 0; i < n; ++i)
@@ -161,13 +186,13 @@ void generateBubbleSortNetworkOptimized()
         initial[0] = F;
         initial[1] = S;
 
-        std::set<Vertex> visited;
         std::queue<Vertex> q;
 
         initial.compute_inverse();
 
         q.push(initial);
-        local_vertices[count++] = initial;
+        all_vertices[count++] = initial;
+        visited[global_permutation_rank(initial.data, n)] = true;
 
         while (!q.empty()) // bfs
         {
@@ -178,14 +203,14 @@ void generateBubbleSortNetworkOptimized()
             {
                 Vertex new_perm = current;
                 std::swap(new_perm[i], new_perm[i + 1]);
-
-                if (visited.find(new_perm) == visited.end())
+                int code = global_permutation_rank(new_perm.data, n);
+                
+                if (!visited[code])
                 {
-                    visited.insert(new_perm);
-                    q.push(new_perm);
                     new_perm.compute_inverse();
-                    local_vertices[count++] = new_perm;
-                    std::cout << new_perm << "  " << rank << std::endl;
+                    all_vertices[count++] = new_perm;
+                    visited[code] = true;
+                    q.push(new_perm);
                 }
             }
         }
@@ -203,7 +228,7 @@ void generateBubbleSortNetworkOptimized()
 
     for (int i = 0; i < rank_size; ++i){
         for (int t = 1; t < n; ++t)
-            parent_map[i].store(t - 1, Parent1(local_vertices[i], I_n, t).data);
+            parent_map[i].store(t - 1, Parent1(all_vertices[i], I_n, t).data);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
