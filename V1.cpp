@@ -173,13 +173,7 @@ size_t factorial(int k)
     return res;
 }
 
-Vertex Swap(Vertex &v, uint8_t x)
-{
-    Vertex p = v;
-    uint8_t i = v(x); // inverse
-    swap(p[i], p[i + 1]);
-    return p;
-}
+
 
 Vertex FindPosition(Vertex &v, Vertex &I_n, uint8_t t)
 {
@@ -192,7 +186,13 @@ Vertex FindPosition(Vertex &v, Vertex &I_n, uint8_t t)
         p = Swap(v, t);
     return p;
 }
-
+Vertex Swap(Vertex &v, uint8_t x)
+{
+    Vertex p = v;
+    uint8_t i = v(x); // inverse
+    swap(p[i], p[i + 1]);
+    return p;
+}
 Vertex Parent1(Vertex &v, Vertex &I_n, uint8_t t)
 {
     Vertex p;
