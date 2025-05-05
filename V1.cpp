@@ -86,12 +86,14 @@ Vertex Parent1(Vertex &v, Vertex &I_n, uint8_t t);
 
 void generateBubbleSortNetworkOptimized()
 {
+
+    double start_time = MPI_Wtime();
+
     int rank, size, namelen;
     char processor_name[MPI_MAX_PROCESSOR_NAME];
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Get_processor_name(processor_name, &namelen);
-
     int total_pairs = n * (n - 1);
     int pairs_per_rank = total_pairs / size;
     int remainder = total_pairs % size;
@@ -99,8 +101,10 @@ void generateBubbleSortNetworkOptimized()
     int num_pairs = pairs_per_rank + (rank < remainder ? 1 : 0);
 
     int rank_size = factorial(n - 2) * num_pairs;
-    cout << "Rank " << rank << " on processor " << processor_name << " processing " << num_pairs << " pairs." << endl;
 
+    Vertex* local_vertices = new Vertex[rank_size]; // Allocate enough (overestimate, safe)
+
+    int count = 0;
     for (int k = start_idx; k < start_idx + num_pairs; ++k)
     {
         uint8_t F = (k / (n - 1)) + 1;
@@ -112,10 +116,46 @@ void generateBubbleSortNetworkOptimized()
         initial[0] = F;
         initial[1] = S;
 
-        cout << "decoded pair (" << (int)F << ", " << (int)S << ") from index " << k << endl;
-        cout << "Rank " << rank << " processing pair (" << (int)F << ", " << (int)S << ")" << endl;
+        std::set<Vertex> visited;
+        std::queue<Vertex> q;
+
+        initial.compute_inverse();
+
+        q.push(initial);
+        local_vertices[count++] = initial;
+
+        while (!q.empty())      // bfs
+        {
+            Vertex current = q.front();
+            q.pop();
+
+            for (uint8_t i = 2; i < n - 1; ++i)
+            {
+                Vertex new_perm = current;
+                std::swap(new_perm[i], new_perm[i + 1]);
+
+                if (visited.find(new_perm) == visited.end())
+                {
+                    visited.insert(new_perm);
+                    q.push(new_perm);
+                    new_perm.compute_inverse();
+                    local_vertices[count++] = new_perm;
+                    std::cout << new_perm << "  " << rank << std::endl;
+                }
+            }
+        }
     }
+
+    // Synchronize all ranks
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    double end_time = MPI_Wtime();
+    double elapsed_time = end_time - start_time;
+    if (rank == 0)
+        std::cout << "Elapsed time: " << elapsed_time << " seconds" << std::endl;
 }
+
+
 
 int main(int argc, char *argv[])
 {
