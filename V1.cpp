@@ -137,6 +137,22 @@ int permutation_rank(const uint8_t* perm_suffix, const uint8_t* value_to_index, 
 }
     
 
+int compute_rank(uint8_t* perm) {
+    uint8_t* sorted_remaining = new uint8_t[n - 2];
+    memcpy(sorted_remaining, &perm[2], (n - 2) * sizeof(uint8_t));
+    sort(sorted_remaining, sorted_remaining + (n - 2));
+
+    uint8_t* value_to_index = new uint8_t[n + 1](); // zero-initialized
+    for (int i = 0; i < n - 2; ++i)
+        value_to_index[sorted_remaining[i]] = i;
+
+    int lehmar = permutation_rank(&perm[2], value_to_index, n - 2);
+
+    delete[] sorted_remaining;
+    delete[] value_to_index;
+    return lehmar;
+}
+
 size_t factorial(int k);
 
 Vertex Swap(Vertex &v, uint8_t x);
@@ -260,6 +276,60 @@ void generateBubbleSortNetworkOptimized()
     double elapsed_time = end_time - start_time;
     if (rank == 0)
         std::cout << "Elapsed time: " << elapsed_time << " seconds" << std::endl;
+
+    delete[] local_vertices;
+
+    if (rank == 0) {
+        while (true) {
+            cout << "Enter a permutation of size " << n << " (space-separated), or -1 to quit:\n";
+            vector<uint8_t> query_perm(n);
+            for (int i = 0; i < n; ++i) {
+                int x;
+                cin >> x;
+                query_perm[i] = static_cast<uint8_t>(x);
+            }
+            
+            // first compute the pair_idx
+            uint8_t F = query_perm[0];
+            uint8_t S = query_perm[1];
+            if (S > F) S--;
+            uint8_t pair_idx = (F - 1) * (n - 1) + (S - 1);
+            int lahmar_code = compute_rank(query_perm.data());
+
+            if (pair_idx < start_idx || pair_idx >= start_idx + num_pairs) {
+                MPI_Bcast(&lahmar_code, 1, MPI_INT, 0, MPI_COMM_WORLD);
+                MPI_Bcast(&pair_idx, 1, MPI_UINT8_T, 0, MPI_COMM_WORLD);
+
+                // wait for response
+                MPI_Recv(nullptr, 0, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                continue;
+            }
+
+            ParentTable*& pt = parent_map[pair_idx - start_idx];
+    
+            cout << "Parents of this permutation (from " << processor_name <<" rank : "<<rank << "):\n";
+            cout << pt[lahmar_code] << endl;
+            
+        }
+    }
+    else {
+        while (true) {
+            int lahmar_code;
+            uint8_t pair_idx;
+            MPI_Bcast(&lahmar_code, 1, MPI_INT, 0, MPI_COMM_WORLD);
+            MPI_Bcast(&pair_idx, 1, MPI_UINT8_T, 0, MPI_COMM_WORLD);
+            if (pair_idx < start_idx || pair_idx >= start_idx + num_pairs)
+                continue;
+
+            ParentTable*& pt = parent_map[pair_idx - start_idx];
+    
+            cout << "Parents of this permutation (from " << processor_name <<" rank : "<<rank << "):\n";
+            cout << pt[lahmar_code] << endl;
+
+            MPI_Send(nullptr, 0, MPI_INT, 0, 0, MPI_COMM_WORLD);
+        }
+    }
+
 
 }
 
