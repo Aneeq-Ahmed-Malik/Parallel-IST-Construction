@@ -66,6 +66,65 @@ struct Vertex {
 };
 
 
+size_t factorial(int k);
+
+Vertex Swap(Vertex& v, uint8_t x);
+Vertex FindPosition(Vertex& v, Vertex& I_n, uint8_t t);
+Vertex Parent1(Vertex& v, Vertex& I_n, uint8_t t);
+
+
+
 int main() {
   
+}
+
+
+
+size_t factorial(int k) {
+    size_t res = 1;
+    for (int i = 2; i <= k; ++i) res *= i;
+    return res;
+}
+
+Vertex Swap(Vertex& v, uint8_t x) {
+    Vertex p = v;
+    uint8_t i = v(x);   // inverse
+    swap(p[i], p[i + 1]);
+    return p;
+}
+
+Vertex FindPosition(Vertex& v, Vertex& I_n, uint8_t t) {
+    Vertex p;
+    if (t == 2 && Swap(v, t) == I_n)
+        p = Swap(v, t - 1);
+    else if (v[n-2] == t || v[n-2] == n-1)
+        p = Swap(v, v.r() + 1);
+    else
+        p = Swap(v, t);
+    return p;
+}
+
+Vertex Parent1(Vertex& v, Vertex& I_n, uint8_t t) {
+    Vertex p;
+    if (v[n-1] == n) {
+        if (t != n - 1) 
+            p = FindPosition(v, I_n, t);
+        else
+            p = Swap(v, v[n-2]);
+    }
+    else {
+        if (v[n-1] == n-1 && v[n-2] == n && Swap(v, n) != I_n){
+            if (t == 1)
+                p = Swap(v, n);
+            else
+                p = Swap(v, t - 1);
+        }
+        else{
+            if (v[n-1] == t)
+                p = Swap(v, n);
+            else
+                p = Swap(v, t);
+        }
+    }
+    return p;
 }
