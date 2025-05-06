@@ -184,7 +184,9 @@ void generateBubbleSortNetworkOptimized()
     for (int i = 0; i < n; ++i)
         I_n[i] = i + 1;
 
-    int count = 0;
+    omp_set_num_threads(2);
+
+    #pragma omp parallel
     for (int k = start_idx; k < start_idx + num_pairs; ++k)
     {
         uint8_t F = (k / (n - 1)) + 1;
@@ -196,7 +198,6 @@ void generateBubbleSortNetworkOptimized()
         initial[0] = F;
         initial[1] = S;
 
-        std::queue<Vertex> q;
 
         uint8_t val = 1;
         for (int i = 2; i < n; ++i) {
@@ -215,38 +216,44 @@ void generateBubbleSortNetworkOptimized()
             value_to_index[sorted_remaining[i]] = i;
         }
 
-        bool *visited = new bool[rank_size]();
 
         initial.compute_inverse();  // Precompute the inverse
         initial.setLehmarCode(permutation_rank(&initial[2], value_to_index, n - 2));
-        q.push(initial);
-        visited[initial.getLehmarCode()] = true;
 
-        local_vertices[count++] = initial;
+        int perm_size = n - 2;
+        vector<uint8_t> perm(perm_size);
+        memcpy(perm.data(), &initial[2], perm_size);
 
-        while (!q.empty()) // bfs
-        {
-            Vertex current = q.front();
-            q.pop();
+        vector<int> c(perm_size, 0);
+        int base_index = (k - start_idx) * (rank_size / num_pairs);
+        int count = 0;
 
-            for (uint8_t i = 2; i < n - 1; ++i)
-            {
-                Vertex new_perm = current;
-                std::swap(new_perm[i], new_perm[i + 1]);
-                int r = permutation_rank(&new_perm[2], value_to_index, n - 2);
+        while (true) {
+            Vertex v = initial;
+            for (int i = 0; i < perm_size; ++i)
+                v[i + 2] = perm[i];
+            v.compute_inverse();
+            v.setLehmarCode(permutation_rank(&v[2], value_to_index, perm_size));
+            local_vertices[base_index + count++] = v;
 
-                if (!visited[r]) {
-                    visited[r] = true;
-                    q.push(new_perm);
-                    new_perm.compute_inverse();
-                    new_perm.setLehmarCode(r);
-                    cout << new_perm << "  " <<  (int)new_perm.getLehmarCode() << endl;
-                    local_vertices[count++] = new_perm;
-                    count++;
+            int i = 0;
+            while (i < perm_size) {
+                if (c[i] < i) {
+                    if (i % 2 == 0)
+                        swap(perm[0], perm[i]);
+                    else
+                        swap(perm[c[i]], perm[i]);
+                    ++c[i];
+                    i = 0;
+                    break;
+                } else {
+                    c[i] = 0;
+                    ++i;
                 }
             }
+            if (i == perm_size) break;
         }
-        delete[] visited;
+
         delete[] sorted_remaining;
         delete[] value_to_index;
     }
