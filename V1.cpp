@@ -186,7 +186,7 @@ void generateBubbleSortNetworkOptimized()
 
     omp_set_num_threads(2);
 
-    #pragma omp parallel
+    #pragma omp parallel for
     for (int k = start_idx; k < start_idx + num_pairs; ++k)
     {
         uint8_t F = (k / (n - 1)) + 1;
